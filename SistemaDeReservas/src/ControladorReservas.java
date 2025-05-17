@@ -1,10 +1,10 @@
 import java.sql.*;
 import java.util.Date;
 
-public class GestorReservas {
+public class ControladorReservas {
     private Connection connection;
 
-    public GestorReservas() {
+    public ControladorReservas() {
         try {
             connection = DatabaseConnection.getConnection();
             if (connection != null) {
@@ -115,27 +115,33 @@ public class GestorReservas {
         return false; // El correo no está en uso
     }
 
+    private boolean hayConflictoHorario(String recurso, Date fechaInicio, Date fechaFin) {
+        String sql = "SELECT COUNT(*) FROM reservas WHERE recurso = ? AND fecha_reserva = ? AND (" +
+                "(hora_inicio < ? AND hora_fin > ?) OR " +    // caso 1 y 2
+                "(hora_inicio >= ? AND hora_inicio < ?) OR " + // caso 3
+                "(hora_inicio <= ? AND hora_fin >= ?) " +      // caso 4 y 5
+                ")";
 
-    private boolean hayConflictoHorario( String reserva, Date fechaInicio, Date fechaFin) {
-        String sql = "SELECT COUNT(*) FROM reservas WHERE recurso = ? AND fecha_reserva = ? AND " +
-                "((hora_inicio < ? AND hora_fin > ?) OR (hora_inicio < ? AND hora_fin > ?) OR (hora_inicio>= ? AND hora_inicio < ?)) ";
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setString(1, reserva);
+            pstmt.setString(1, recurso);
             pstmt.setDate(2, new java.sql.Date(fechaInicio.getTime()));
-            pstmt.setTime(3, new java.sql.Time(fechaInicio.getTime()));
-            pstmt.setTime(4, new java.sql.Time(fechaFin.getTime()));
-            pstmt.setTime(5, new java.sql.Time(fechaFin.getTime()));
-            pstmt.setTime(6, new java.sql.Time(fechaFin.getTime()));
-            pstmt.setTime(7, new java.sql.Time((fechaInicio.getTime())));
-            pstmt.setTime(8, new java.sql.Time(fechaFin.getTime()));
+            java.sql.Time inicio = new java.sql.Time(fechaInicio.getTime());
+            java.sql.Time fin = new java.sql.Time(fechaFin.getTime());
+            pstmt.setTime(3, fin);     // hora_inicio < nuevaFin
+            pstmt.setTime(4, inicio);  // hora_fin > nuevaInicio
+            pstmt.setTime(5, inicio);  // hora_inicio >= nuevaInicio
+            pstmt.setTime(6, fin);     // hora_inicio < nuevaFin
+            pstmt.setTime(7, inicio);  // hora_inicio <= nuevaInicio
+            pstmt.setTime(8, fin);     // hora_fin >= nuevaFin
 
             ResultSet rs = pstmt.executeQuery();
             if (rs.next()) {
-                return rs.getInt(1) > 0; // Retorna true si hay conflictos
+                return rs.getInt(1) > 0; // Conflicto detectado
             }
         } catch (SQLException e) {
+            System.out.println("Error en la consulta SQL de conflicto de horario:");
             e.printStackTrace();
         }
-        return false; // No hay conflictos
+        return false; // No hay conflicto
     }
 }

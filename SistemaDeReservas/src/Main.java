@@ -6,7 +6,7 @@ import java.util.Scanner;
 
 public class Main {
     public static void main(String[] args) {
-        GestorReservas gestor = new GestorReservas();
+        ControladorReservas gestor = new ControladorReservas();
         Scanner scanner = new Scanner(System.in);
 
         // Solicitar el nombre del usuario
